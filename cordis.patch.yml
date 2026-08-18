@@ -1,0 +1,6 @@
+# dsh-model-balance bundle patch: registers the plugin into a profile's layer stack.
+# insert.id must match the cordis plugin `name` exported by lib/index.js ('model-balance');
+# insert.name must be the package name ('dsh-model-balance') so the loader resolves it.
+- insert:
+    - id: model-balance
+      name: 'dsh-model-balance'
