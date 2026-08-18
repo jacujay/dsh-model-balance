@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Host syntax
+        run: node --check lib/index.js && node --check lib/query.js && node --check lib/vendors.js && node --check lib/config.js
+      - name: Client syntax
+        run: node --check client/client.js
+      - name: Structure checks
+        run: node test/structure.test.mjs
