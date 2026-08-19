@@ -1,7 +1,7 @@
 {
   "name": "dsh-model-balance",
   "description": "Auto-detect the current model vendor and show its balance/quota in the composer input row, with a settings page for custom endpoints.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "entry": {
     "name": "dsh-model-balance",
     "inject": []
