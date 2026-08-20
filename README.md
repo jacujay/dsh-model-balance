@@ -12,7 +12,7 @@ Built for [DeepSeek Harness](https://www.deepseek.com/harness/) (DSH web).
 - **Built-in vendors** — DeepSeek, Moonshot/Kimi, MiniMax, StepFun, Zhipu (quota only), SiliconFlow, OpenRouter.
 - **Two result kinds** — monetary balance (with granted/topped-up breakdown where the API provides it) and quota (MiniMax / Zhipu, which expose usage plans instead of money).
 - **Input-row button** — a small `◈` icon before the model name in the native composer row. Hover opens a peek panel; click refreshes. Error / unsupported / quota states get their own colors.
-- **Settings page** — Settings → **余额查询**: lists supported vendors and lets you add a custom balance endpoint for any provider (URL + response field path + bearer/raw auth + display name).
+- **Settings page** — Settings → **Balance lookup**: lists supported vendors and lets you add a custom balance endpoint for any provider (URL + response field path + bearer/raw auth + display name).
 - **Key-safe** — API keys are resolved host-side through the DSH credentials store and never reach the browser. Custom endpoint config persists at `~/.dsh/dsh-model-balance.json` **without** any secrets.
 - **Live in seconds** — the host answers over same-origin HTTP routes; no restart needed after a page refresh.
 
@@ -39,7 +39,18 @@ Then refresh the browser page.
 | SiliconFlow | `/v1/user/info` | balance |
 | OpenRouter | `/api/v1/auth/key` | balance (USD) / unlimited |
 
-Anything else: add a custom endpoint in **Settings → 余额查询**. The API key still comes from DSH credentials (`apiKeyEnv` of the provider), the custom URL is called host-side with it.
+### New API-compatible proxies
+
+New API exposes token usage at `/api/usage/token`, authenticated with the same API key used for model calls. Add a custom endpoint for the matching DSH provider (often `openai`) in **Settings → Balance lookup**:
+
+- URL: `https://your-relay.example.com/api/usage/token`
+- Response path: `data.total_available`
+- Authentication: `Bearer Token`
+- Display name: optional
+
+The plugin recognizes New API's `token_usage` response automatically. It shows unlimited quota when `unlimited_quota` is true, otherwise it reports the remaining amount, total granted amount, and usage.
+
+Anything else: add a custom endpoint in **Settings → Balance lookup**. The API key still comes from DSH credentials (`apiKeyEnv` of the provider), and the custom URL is called host-side with it.
 
 ## Privacy & security notes
 

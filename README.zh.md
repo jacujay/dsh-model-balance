@@ -39,6 +39,17 @@ dsh plugin --profile web add github:jacujay/dsh-model-balance
 | 硅基流动 | `/v1/user/info` | 余额 |
 | OpenRouter | `/api/v1/auth/key` | 余额（USD）/ 无限 |
 
+### New API 兼容中转站
+
+New API 的 Token 用量接口是 `/api/usage/token`，使用和模型调用相同的 API Key，不需要数字用户 ID 或单独的 Access Token。在 **设置 → 余额查询** 添加自定义接口：
+
+- URL：`https://你的中转站.example.com/api/usage/token`
+- 响应字段路径：`data.total_available`
+- 鉴权方式：`Bearer Token`
+- 显示名称：可选
+
+插件会自动识别 New API 的 `token_usage` 响应；`unlimited_quota` 为 true 时显示无限额度，否则显示剩余额度、总额度和已用额度。
+
 其它厂商：在 **设置 → 余额查询** 添加自定义接口。API Key 仍来自 DSH 凭据（provider 的 `apiKeyEnv`），自定义 URL 由 Host 侧携带调用。
 
 ## 隐私与安全说明

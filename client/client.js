@@ -1,7 +1,7 @@
 // dsh-model-balance — client half.
 //
 // A balance/quota button in the native composer input row (left of the model
-// name) plus a "余额查询" settings page. All data comes from the host over
+// name) plus a Balance lookup settings page. All data comes from the host over
 // same-origin HTTP routes; API keys never reach the browser.
 //
 // This file ships in the DSH browser module-loader format
@@ -62,20 +62,35 @@ window.__ModuleLoader__.load({
       })
     }
 
+    function isChineseLocale() {
+      try {
+        var lang = (document.documentElement && document.documentElement.lang) ||
+          (typeof navigator !== 'undefined' ? navigator.language : '') || ''
+        return /^zh(?:-|$)/i.test(lang)
+      } catch (error) {
+        return false
+      }
+    }
+
+    var chinese = isChineseLocale()
+    function text(english, chineseText) {
+      return chinese ? chineseText : english
+    }
+
     function amountOf(state) {
-      if (state.status === 'loading') return '查询中'
-      if (state.status === 'unsupported') return '无接口'
-      if (state.status === 'error') return '不可用'
-      if (state.status === 'quota') return '配额'
+      if (state.status === 'loading') return text('Checking...', '查询中')
+      if (state.status === 'unsupported') return text('No endpoint', '无接口')
+      if (state.status === 'error') return text('Unavailable', '不可用')
+      if (state.status === 'quota') return text('Quota', '配额')
       var value = state.balance !== undefined && state.balance !== null ? state.balance
         : state.totalBalance !== undefined && state.totalBalance !== null ? state.totalBalance
         : state.grantedBalance !== undefined && state.grantedBalance !== null ? state.grantedBalance
         : state.toppedUpBalance !== undefined && state.toppedUpBalance !== null ? state.toppedUpBalance
         : null
-      if (value === null) return state.unlimited === true ? '无限额度' : '未知'
+      if (value === null) return state.unlimited === true ? text('Unlimited', '无限额度') : text('Unknown', '未知')
       var num = Number(value)
-      var text = Number.isFinite(num) ? (Math.round(num * 100) / 100).toString() : String(value)
-      return state.currency ? state.currency + ' ' + text : text
+      var formatted = Number.isFinite(num) ? (Math.round(num * 100) / 100).toString() : String(value)
+      return state.currency ? state.currency + ' ' + formatted : formatted
     }
 
     function BalanceInputButton() {
@@ -89,9 +104,9 @@ window.__ModuleLoader__.load({
       var refresh = function () {
         setState({ status: 'loading' })
         getJson('/api/model-balance/current').then(function (value) {
-          setState(value && typeof value === 'object' ? value : { status: 'error', error: '无效响应' })
+          setState(value && typeof value === 'object' ? value : { status: 'error', error: text('Invalid response', '无效响应') })
         }).catch(function () {
-          setState({ status: 'error', error: '余额查询失败' })
+          setState({ status: 'error', error: text('Balance lookup failed', '余额查询失败') })
         })
       }
 
@@ -101,19 +116,22 @@ window.__ModuleLoader__.load({
       }, [])
 
       var amount = amountOf(state)
-      var title = state.error || (state.label ? state.label + ' 余额，点击刷新' : '当前模型余额，点击刷新')
+      var vendorLabel = chinese && state.vendorLabelZh ? state.vendorLabelZh : state.label
+      var title = state.error || (vendorLabel
+        ? vendorLabel + ' ' + text('balance, click to refresh', '余额，点击刷新')
+        : text('Current model balance, click to refresh', '当前模型余额，点击刷新'))
       var rows = []
-      if (state.label) rows.push(['厂商', state.label])
-      if (state.model) rows.push(['模型', state.model])
+      if (vendorLabel) rows.push([text('Vendor', '厂商'), vendorLabel])
+      if (state.model) rows.push([text('Model', '模型'), state.model])
       if (state.status === 'ok') {
-        if (state.grantedBalance !== undefined && state.grantedBalance !== null) rows.push(['现金', (state.currency || '') + ' ' + state.grantedBalance])
-        if (state.toppedUpBalance !== undefined && state.toppedUpBalance !== null) rows.push(['赠金', (state.currency || '') + ' ' + state.toppedUpBalance])
-        if (state.usage !== undefined && state.usage !== null) rows.push(['已用', state.usage])
-        if (state.unlimited === true) rows.push(['额度', '无限 / 免费档'])
-        if (state.source === 'custom') rows.push(['来源', '自定义接口'])
+        if (state.grantedBalance !== undefined && state.grantedBalance !== null) rows.push([text('Cash', '现金'), (state.currency || '') + ' ' + state.grantedBalance])
+        if (state.toppedUpBalance !== undefined && state.toppedUpBalance !== null) rows.push([text('Topped up', '赠金'), (state.currency || '') + ' ' + state.toppedUpBalance])
+        if (state.usage !== undefined && state.usage !== null) rows.push([text('Used', '已用'), state.usage])
+        if (state.unlimited === true) rows.push([text('Quota', '额度'), text('Unlimited', '无限 / 免费档')])
+        if (state.source === 'custom') rows.push([text('Source', '来源'), text('Custom endpoint', '自定义接口')])
       }
-      if (state.status === 'quota' && Array.isArray(state.quota)) rows.push(['配额', state.quota.join('，')])
-      if (state.error) rows.push(['提示', state.error])
+      if (state.status === 'quota' && Array.isArray(state.quota)) rows.push([text('Quota', '配额'), state.quota.join(chinese ? '，' : ', ')])
+      if (state.error) rows.push([text('Notice', '提示'), state.error])
 
       return React.createElement('span', {
         className: 'dsh-model-balance-input',
@@ -139,16 +157,16 @@ window.__ModuleLoader__.load({
           className: 'dsh-model-balance-input__panel',
           role: 'status'
         },
-          React.createElement('div', { className: 'dsh-model-balance-input__title' }, state.status === 'unsupported' ? '余额查询' : '模型余额'),
+          React.createElement('div', { className: 'dsh-model-balance-input__title' }, state.status === 'unsupported' ? text('Balance lookup', '余额查询') : text('Model balance', '模型余额')),
           React.createElement('div', { className: 'dsh-model-balance-input__amount' }, amount),
           rows.map(function (row) {
             return React.createElement('div', {
-              className: 'dsh-model-balance-input__line' + (row[0] === '提示' ? ' dsh-model-balance-input__muted' : ''),
+              className: 'dsh-model-balance-input__line' + (row[0] === text('Notice', '提示') ? ' dsh-model-balance-input__muted' : ''),
               key: row[0]
             }, row[0] + '：' + row[1])
           }),
           state.status === 'unsupported'
-            ? React.createElement('div', { className: 'dsh-model-balance-input__line dsh-model-balance-input__muted' }, '可在 设置 → 余额查询 中添加自定义接口')
+            ? React.createElement('div', { className: 'dsh-model-balance-input__line dsh-model-balance-input__muted' }, text('Add a custom endpoint in Settings → Balance lookup', '可在 设置 → 余额查询 中添加自定义接口'))
             : null
         ) : null
       )
@@ -181,9 +199,9 @@ window.__ModuleLoader__.load({
 
       var save = function () {
         var provider = form.provider.trim()
-        if (!provider) { setNotice('请填写 provider id'); return }
-        if (!form.url.trim()) { setNotice('请填写接口 URL'); return }
-        if (!form.path.trim()) { setNotice('请填写响应字段路径'); return }
+        if (!provider) { setNotice(text('Enter a provider id', '请填写 provider id')); return }
+        if (!form.url.trim()) { setNotice(text('Enter an endpoint URL', '请填写接口 URL')); return }
+        if (!form.path.trim()) { setNotice(text('Enter a response field path', '请填写响应字段路径')); return }
         getJson('/api/model-balance/custom', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -196,71 +214,71 @@ window.__ModuleLoader__.load({
           })
         }).then(function (r) {
           if (r && r.error) { setNotice(r.error); return }
-          setNotice('已保存')
+          setNotice(text('Saved', '已保存'))
           setForm({ provider: '', url: '', auth: 'bearer', path: '', vendor: '' })
           reload()
-        }).catch(function () { setNotice('保存失败') })
+        }).catch(function () { setNotice(text('Save failed', '保存失败')) })
       }
 
       var remove = function (provider) {
         getJson('/api/model-balance/custom?provider=' + encodeURIComponent(provider), { method: 'DELETE' }).then(function () {
-          setNotice('已删除')
+          setNotice(text('Deleted', '已删除'))
           reload()
-        }).catch(function () { setNotice('删除失败') })
+        }).catch(function () { setNotice(text('Delete failed', '删除失败')) })
       }
 
       if (!data.loaded) {
-        return React.createElement('div', { className: 'dsh-model-balance-settings' }, '加载中…')
+        return React.createElement('div', { className: 'dsh-model-balance-settings' }, text('Loading...', '加载中…'))
       }
 
       return React.createElement('div', { className: 'dsh-model-balance-settings' },
-        React.createElement('div', { className: 'dsh-model-balance-settings__hint' }, '自动识别当前模型厂商并查询余额；未内置的厂商可手动添加接口。'),
+        React.createElement('div', { className: 'dsh-model-balance-settings__hint' }, text('The current model vendor is detected automatically. Add an endpoint for unsupported vendors.', '自动识别当前模型厂商并查询余额；未内置的厂商可手动添加接口。')),
         React.createElement('div', { style: { marginTop: 8 } },
-          React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, '自动支持的厂商'),
+          React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, text('Built-in vendors', '自动支持的厂商')),
           data.vendors.map(function (v) {
             return React.createElement('div', { className: 'dsh-model-balance-settings__vendor', key: v.id },
-              React.createElement('span', null, v.label),
-              React.createElement('span', { className: 'dsh-model-balance-settings__badge' }, v.kind === 'quota' ? '仅配额' : '余额')
+              React.createElement('span', null, chinese && v.labelZh ? v.labelZh : v.label),
+              React.createElement('span', { className: 'dsh-model-balance-settings__badge' }, v.kind === 'quota' ? text('Quota only', '仅配额') : text('Balance', '余额'))
             )
           })
         ),
         React.createElement('div', { style: { marginTop: 10 } },
-          React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, '自定义接口'),
+          React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, text('Custom endpoints', '自定义接口')),
           Object.keys(data.custom).length === 0
-            ? React.createElement('div', { className: 'dsh-model-balance-settings__hint' }, '暂无自定义接口')
+            ? React.createElement('div', { className: 'dsh-model-balance-settings__hint' }, text('No custom endpoints', '暂无自定义接口'))
             : Object.keys(data.custom).map(function (provider) {
               return React.createElement('div', { className: 'dsh-model-balance-settings__row', key: provider },
-                React.createElement('span', null, provider, data.custom[provider].vendor ? '（' + data.custom[provider].vendor + '）' : ''),
-                React.createElement('button', { className: 'dsh-model-balance-settings__del', type: 'button', onClick: function () { remove(provider) } }, '删除')
+                React.createElement('span', null, provider, data.custom[provider].vendor ? (chinese ? '（' + data.custom[provider].vendor + '）' : ' (' + data.custom[provider].vendor + ')') : ''),
+                React.createElement('button', { className: 'dsh-model-balance-settings__del', type: 'button', onClick: function () { remove(provider) } }, text('Delete', '删除'))
               )
             })
         ),
         React.createElement('div', { className: 'dsh-model-balance-settings__form' },
           React.createElement('div', { className: 'dsh-model-balance-settings__field' },
-            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, 'provider id（如 openai / my-proxy）'),
-            React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.provider, onChange: function (e) { setForm(Object.assign({}, form, { provider: e.target.value })) }, placeholder: '例如 openai' })
+            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, text('Provider id (for example, openai or my-proxy)', 'provider id（如 openai / my-proxy）')),
+            React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.provider, onChange: function (e) { setForm(Object.assign({}, form, { provider: e.target.value })) }, placeholder: 'e.g. openai' })
           ),
           React.createElement('div', { className: 'dsh-model-balance-settings__field' },
-            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, '余额接口 URL（完整地址）'),
+            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, text('Balance endpoint URL (full URL)', '余额接口 URL（完整地址）')),
             React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.url, onChange: function (e) { setForm(Object.assign({}, form, { url: e.target.value })) }, placeholder: 'https://api.example.com/v1/dashboard/billing/credit_grants' })
           ),
           React.createElement('div', { className: 'dsh-model-balance-settings__field' },
-            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, '响应字段路径（支持 data.x 与 arr[0].y）'),
-            React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.path, onChange: function (e) { setForm(Object.assign({}, form, { path: e.target.value })) }, placeholder: '例如 data.available_balance' })
+            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, text('Response field path (supports data.x and arr[0].y)', '响应字段路径（支持 data.x 与 arr[0].y）')),
+            React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.path, onChange: function (e) { setForm(Object.assign({}, form, { path: e.target.value })) }, placeholder: 'e.g. data.available_balance' })
           ),
           React.createElement('div', { className: 'dsh-model-balance-settings__field' },
-            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, '鉴权方式'),
+            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, text('Authentication', '鉴权方式')),
             React.createElement('select', { className: 'dsh-model-balance-settings__input', value: form.auth, onChange: function (e) { setForm(Object.assign({}, form, { auth: e.target.value })) } },
               React.createElement('option', { value: 'bearer' }, 'Bearer Token'),
-              React.createElement('option', { value: 'raw' }, '裸 Key（如智谱）')
+              React.createElement('option', { value: 'raw' }, text('Raw key (for example, Zhipu)', '裸 Key（如智谱）'))
             )
           ),
           React.createElement('div', { className: 'dsh-model-balance-settings__field' },
-            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, '显示名称（可选）'),
-            React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.vendor, onChange: function (e) { setForm(Object.assign({}, form, { vendor: e.target.value })) }, placeholder: '例如 我的中转站' })
+            React.createElement('label', { className: 'dsh-model-balance-settings__label' }, text('Display name (optional)', '显示名称（可选）')),
+            React.createElement('input', { className: 'dsh-model-balance-settings__input', value: form.vendor, onChange: function (e) { setForm(Object.assign({}, form, { vendor: e.target.value })) }, placeholder: 'e.g. My relay' })
           ),
           React.createElement('div', { className: 'dsh-model-balance-settings__actions' },
-            React.createElement('button', { className: 'dsh-model-balance-settings__btn', type: 'button', onClick: save }, '保存'),
+            React.createElement('button', { className: 'dsh-model-balance-settings__btn', type: 'button', onClick: save }, text('Save', '保存')),
             notice ? React.createElement('span', { className: 'dsh-model-balance-settings__hint' }, notice) : null
           )
         )
@@ -276,13 +294,13 @@ window.__ModuleLoader__.load({
         removeStyle,
         slots.inject('conversation.input.right', function () {
           return slots.register(
-            { name: 'conversation.input.right', id: 'model-balance', order: -10, label: '余额' },
+            { name: 'conversation.input.right', id: 'model-balance', order: -10, label: text('Balance', '余额') },
             function () { return React.createElement(BalanceInputButton, null) }
           )
         }),
         slots.inject('settings.section', function () {
           return slots.register(
-            { name: 'settings.section', id: 'model-balance', order: 58, label: '余额查询' },
+            { name: 'settings.section', id: 'model-balance', order: 58, label: text('Balance lookup', '余额查询') },
             function () { return React.createElement(BalanceSettingsPage, null) }
           )
         })

@@ -39,6 +39,11 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
 assert.equal(pkg.name, 'dsh-model-balance')
 assert.equal(pkg.dsh?.bundle?.patch, './cordis.patch.yml', 'dsh.bundle.patch required')
 assert.equal(pkg.dsh?.client?.platform, 'web', 'dsh.client.platform must be web')
+assert.doesNotMatch(pkg.description, /[\u4e00-\u9fff]/, 'package description must be English-only')
+const englishReadme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
+assert.doesNotMatch(englishReadme, /[\u4e00-\u9fff]/, 'English README must not contain CJK text')
+const clientSource = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8')
+assert.match(clientSource, /function isChineseLocale\(\)/, 'client must support locale-aware labels')
 for (const file of ['cordis.patch.yml', 'dsh.plugin.json', 'README.md', 'README.zh.md', 'LICENSE', 'client/client.js']) {
   assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `missing ${file}`)
 }
